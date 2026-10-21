@@ -1,0 +1,39 @@
+name: Build‑bl‑mt798x‑new
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y gcc-aarch64-linux-gnu bison flex libssl-dev python3 python3-pip make git
+
+      - name: Build ATF (atf‑20250711)
+        run: |
+          cd ./atf-20250711
+          make CROSS_COMPILE=aarch64-linux-gnu- PLAT=mt7981 bl31
+
+      - name: Build U‑Boot (uboot‑mtk‑20250711)
+        run: |
+          cd ./uboot-mtk-20250711
+          make CROSS_COMPILE=aarch64-linux-gnu- mt7981b_openwrt_one_defconfig
+          make CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
+
+      - name: Generate FIP bin
+        run: |
+          python3 ./tools/mtk_fip_generator.py \
+          --atf ./atf-20250711/build/mt7981/release/bl31.bin \
+          --uboot ./uboot-mtk-20250711/u-boot.bin \
+          --layout fixed-parts \
+          --out mt7981_xiaomi_wr30u-fip-fixed-parts.bin
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wr30u‑custom‑uboot
+          path: mt7981_xiaomi_wr30u-fip-fixed-parts.bin
